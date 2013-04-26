@@ -1,0 +1,172 @@
+<?php
+/**
+ * rssreader.php , rss reader
+ * 
+ * This file implements a rss reader as a CFlxBotServer module.
+ *
+ * Copyright 2008 sebbu <zsbe17fr@yahoo.fr>
+ *
+ * See the enclosed file COPYING for license information (LGPL). If you
+ * did not receive this file, see http://www.fsf.org/copyleft/lgpl.html.
+ *
+ * @author  sebbu <zsbe17fr@yahoo.fr>
+ * @package CFlxBotServer
+ */
+
+/**
+ * Load the rss reader to the bot.
+ *
+ * @param string $where The channel where the command was typed.
+ * @param string $who The mask of the person who typed the command.
+ */
+//start_of_rssreader_load
+function rssreader_load($where, $who) {
+	$module = 'rssreader';
+	$rssreader = &$GLOBALS['modules'][$module];
+	$rssreader['functions']['lastnews'] = get_module_function( 'rssreader_lastnews', __FILE__,$module );
+	$rssreader['functions']['last5news'] = get_module_function( 'rssreader_last5news', __FILE__,$module );
+	$rssreader['functions']['XmlLoader'] = get_module_function( 'XmlLoader', __FILE__,$module );
+	$rssreader['functions']['HandleXmlError'] = get_module_function( 'HandleXmlError', __FILE__,$module );
+	$GLOBALS['triggers1']['!lastnews'] = array( 'count'=>0, 'who'=>'normal', 'arg'=>'(.+)', 'command'=>array( 0=>array( 0=>&$rssreader['functions']['lastnews'], 1=>1 ) ) );
+	$GLOBALS['triggers1']['!last5news'] = array( 'count'=>0, 'who'=>'normal', 'arg'=>'(.+)', 'command'=>array( 0=>array( 0=>&$rssreader['functions']['last5news'], 1=>1 ) ) );
+	return true;
+}
+//end_of_rssreader_load
+
+
+/**
+ * Unload the rss reader to the bot.
+ *
+ * @param string $where The channel where the command was typed.
+ * @param string $who The mask of the person who typed the command.
+ */
+//start_of_rssreader_unload
+function rssreader_unload($where, $who) {
+	$module = 'rssreader';
+	unset( $GLOBALS['triggers1']['!lastnews'] );
+	unset( $GLOBALS['triggers1']['!last5news'] );
+	unset( $GLOBALS['modules'][$module] );
+	return true;
+}
+//end_of_rssreader_unload
+
+
+/**
+ * Say on the channel the 5 last news of a rss feed.
+ *
+ * @param string $where The channel where the command was typed.
+ * @param string $who The mask of the person who typed the command.
+ * @param string $site The URL of the rss feed
+ * @return True if success, false otherwise.
+ */
+//start_of_rssreader_last5news
+function rssreader_last5news($where, $who, $site) {
+	$module = 'rssreader';
+	$data = html_entity_decode( file_get_contents( $site ) );
+	//$data = mb_convert_encoding( $data, 'utf-8', 'utf-8,iso-8859-1,iso-8859-15' );
+	$data = mb_convert_encoding( $data, 'utf-8' );
+	$data = utf8_decode( $data );
+	$data = str_replace('&','&amp;',str_replace('&amp;','&',$data));
+	$data = preg_replace('#<([^@ :/?]+@[^>]+)>#i','"$1"',$data);
+	$data = preg_replace('#<([^@ :/?]+) at ([^@ :/?]+) dot ([^>]+)>#i','"$1@$2.$3"',$data);
+	$data = preg_replace('#<([^@ :/?]+) at ([^>]+)>#i','"$1@$2.$3"',$data);
+	$valid = true;
+	try {
+		$dom = $GLOBALS['modules'][$module]['functions']['XmlLoader']( $data );
+	}
+	catch( DOMException $e ) {
+		print($e."\n");
+		$valid = false;
+	}
+	if( $valid === false ) {
+		say( $where, $who, 'xml non valide' );
+		return false;
+	}
+	$allitems = $dom->getElementsByTagName( 'item' );
+	for($i = 0 ; $i < 5 && $i < $allitems->length ; $i++) {
+		say( $where, $who, $allitems->item( $i )->getElementsByTagName( 'title' )->item( 0 )->nodeValue . "\r\n" );
+	}
+	return true;
+}
+//end_of_rssreader_last5news
+
+
+/**
+ * Say on the channel the last news of a rss feed.
+ *
+ * @param string $where The channel where the command was typed.
+ * @param string $who The mask of the person who typed the command.
+ * @param string $site The URL of the rss feed
+ * @return True if success, false otherwise.
+ */
+//start_of_rssreader_lastnews
+function rssreader_lastnews($where, $who, $site) {
+	$module = 'rssreader';
+	$data = html_entity_decode( file_get_contents( $site ) );
+	//$data = mb_convert_encoding( $data, 'utf-8', 'utf-8,iso-8859-1,iso-8859-15' );
+	$data = mb_convert_encoding( $data, 'utf-8' );
+	$data = utf8_decode( $data );
+	$data = str_replace('&','&amp;',str_replace('&amp;','&',$data));
+	$data = preg_replace('#<([^@ :/?]+@[^>]+)>#i','"$1"',$data);
+	$data = preg_replace('#<([^@ :/?]+) at ([^@ :/?]+) dot ([^>]+)>#i','"$1@$2.$3"',$data);
+	$data = preg_replace('#<([^@ :/?]+) at ([^>]+)>#i','"$1@$2.$3"',$data);
+	$valid = true;
+	try {
+		$dom = $GLOBALS['modules'][$module]['functions']['XmlLoader']( $data );
+	}
+	catch( DOMException $e ) {
+		print($e."\n");
+		$valid = false;
+	}
+	var_dump( $valid );
+	if( $valid === false ) {
+		say( $where, $who, 'xml non valide' );
+		return false;
+	}
+	$allitems = $dom->getElementsByTagName( 'item' );
+	say( $where, $who, $allitems->item( 0 )->getElementsByTagName( 'title' )->item( 0 )->nodeValue . "\r\n" );
+	return true;
+}
+//end_of_rssreader_lastnews
+
+
+/**
+ * This function load a xml string to a DOM documment.
+ *
+ * @param string $strXml The xml string to load.
+ * @return A DOM document.
+ */
+//start_of_XmlLoader
+function XmlLoader($strXml) {
+	$module = 'rssreader';
+	//set_error_handler( 'HandleXmlError' );
+	set_error_handler( $GLOBALS['modules'][$module]['functions']['HandleXmlError'] );
+	$dom = new DOMDocument( );
+	$dom->loadXml( $strXml );
+	restore_error_handler();
+	return $dom;
+}
+//end_of_XmlLoader
+
+
+/**
+ * This function is a callback for set_error_handler in XmlLoader
+ *
+ * @param int $errno The level of the error.
+ * @param string $errstr The description of the error.
+ * @param string $errfile The file where the error has occured.
+ * @param int $errline The lin where the error has occured.
+ * @return A exception if needed, false otherwise.
+ */
+//start_of_HandleXmlError
+function HandleXmlError($errno, $errstr, $errfile, $errline) {
+	if( $errno == E_WARNING && (substr_count( $errstr, "DOMDocument::loadXML()" ) > 0) ) {
+		throw new DOMException( $errstr );
+	}
+	else
+		return false;
+}
+//end_of_HandleXmlError
+
+
+?>
